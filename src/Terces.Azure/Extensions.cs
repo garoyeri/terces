@@ -3,8 +3,16 @@ using Azure.Security.KeyVault.Secrets;
 
 namespace Terces.Azure;
 
+/// <summary>
+/// Provides extension methods for working with Azure KeyVault secrets or related Azure SDK constructs.
+/// </summary>
 public static class Extensions
 {
+    /// <summary>
+    /// Converts a <see cref="Response{KeyVaultSecret}"/> object to a <see cref="SecretInfo"/> object.
+    /// </summary>
+    /// <param name="response">The response containing the KeyVaultSecret to convert.</param>
+    /// <returns>A <see cref="SecretInfo"/> object if the response has a valid secret; otherwise, null.</returns>
     internal static SecretInfo? Map(this Response<KeyVaultSecret> response)
     {
         if (!response.HasValue) return null;
