@@ -22,7 +22,8 @@ public class ManualSecretRotator : IRotator
         OperationContext context,
         CancellationToken cancellationToken)
     {
-        var initialResult = resource.EvaluateRotationCandidacy(store, context, _time, cancellationToken);
+        var initialResult = await resource.EvaluateRotationCandidacy(store, context, _time, cancellationToken);
+        if (initialResult != null) return initialResult;
         
         var newExpiration = _time.GetUtcNow().AddDays(resource.ExpirationDays);
         var newSecretValue = context.SecretValue1;
