@@ -30,7 +30,7 @@ public static class RotatorExtensions
             };
         }
 
-        if (!context.Force && !secret.ShouldRotate(time.GetUtcNow(), resource.ExpirationDays))
+        if (!context.Force && !secret.ShouldRotate(time.GetUtcNow(), resource.ExpirationOverlapDays))
         {
             return new RotationResult
             {
