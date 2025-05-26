@@ -42,6 +42,9 @@ public class ManualSecretRotatorTests
         result.ShouldNotBeNull();
         result.WasRotated.ShouldBeFalse();
         result.Notes.ShouldContain("not found");
+        
+        var resultSecret = await store.GetSecretAsync("test-secret", CancellationToken.None);
+        resultSecret.ShouldBeNull();
     }
 
     [Fact]
@@ -72,6 +75,12 @@ public class ManualSecretRotatorTests
         result.ShouldNotBeNull();
         result.WasRotated.ShouldBeFalse();
         result.Notes.ShouldContain("not due");
+        
+        var resultSecret = await store.GetSecretAsync("test-secret", CancellationToken.None);
+        resultSecret.ShouldNotBeNull();
+        resultSecret.Name.ShouldBe("test-secret");
+        resultSecret.ContentType.ShouldBe("text/plain");
+        resultSecret.ExpiresOn.ShouldBe(start.AddDays(90));
     }
 
     [Fact]
@@ -101,6 +110,12 @@ public class ManualSecretRotatorTests
 
         result.ShouldNotBeNull();
         result.WasRotated.ShouldBeTrue();
+        
+        var resultSecret = await store.GetSecretAsync("test-secret", CancellationToken.None);
+        resultSecret.ShouldNotBeNull();
+        resultSecret.Name.ShouldBe("test-secret");
+        resultSecret.ContentType.ShouldBe("text/plain");
+        resultSecret.ExpiresOn.ShouldBe(start.AddDays(91 + 90));
     }
 
     [Fact]
@@ -131,5 +146,11 @@ public class ManualSecretRotatorTests
 
         result.ShouldNotBeNull();
         result.WasRotated.ShouldBeTrue();
+        
+        var resultSecret = await store.GetSecretAsync("test-secret", CancellationToken.None);
+        resultSecret.ShouldNotBeNull();
+        resultSecret.Name.ShouldBe("test-secret");
+        resultSecret.ContentType.ShouldBe("text/plain");
+        resultSecret.ExpiresOn.ShouldBe(start.AddDays(61 + 90));
     }
 }
