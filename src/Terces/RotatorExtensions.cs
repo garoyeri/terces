@@ -42,4 +42,24 @@ public static class RotatorExtensions
 
         return null;
     }
+
+    public static async Task<RotationResult?> EvaluateInitializationCandidacy(this ResourceConfiguration resource,
+        ISecretStore store,
+        OperationContext context,
+        TimeProvider time,
+        CancellationToken cancellationToken = default)
+    {
+        var secret = await store.GetSecretAsync(resource.Name, cancellationToken);
+        if (secret != null && !context.Force)
+        {
+            return new RotationResult
+            {
+                Name = resource.Name,
+                WasRotated = false,
+                Notes = $"Secret {resource.Name} already initialized in store {resource.StoreName}"
+            };
+        }
+
+        return null;
+    }
 }

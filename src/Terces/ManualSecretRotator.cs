@@ -6,25 +6,25 @@
 /// to change the secret on the target resource, or you've already rotated it
 /// and need the store to match.
 /// </summary>
-public class ManualSecretRotator : IRotator
+public class ManualSecretRotator : AbstractRotator, IRotator
 {
-    private readonly TimeProvider _time;
-
-    public ManualSecretRotator(TimeProvider time)
+    public ManualSecretRotator(TimeProvider time) : base(time)
     {
-        _time = time;
     }
 
     public static string StrategyType => "manual/generic";
-    
-    public async Task<RotationResult> RotateAsync(ResourceConfiguration resource,
+
+    protected override Task<RotationResult> PerformInitialization(ResourceConfiguration resource, ISecretStore store, OperationContext context,
+        CancellationToken cancellationToken)
+    {
+        return PerformRotation(resource, store, context, cancellationToken);
+    }
+
+    protected override async Task<RotationResult> PerformRotation(ResourceConfiguration resource,
         ISecretStore store,
         OperationContext context,
         CancellationToken cancellationToken)
     {
-        var initialResult = await resource.EvaluateRotationCandidacy(store, context, _time, cancellationToken);
-        if (initialResult != null) return initialResult;
-        
         var newExpiration = _time.GetUtcNow().AddDays(resource.ExpirationDays);
         var newSecretValue = context.SecretValue1;
         

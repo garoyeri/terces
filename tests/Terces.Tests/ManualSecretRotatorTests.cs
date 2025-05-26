@@ -21,7 +21,110 @@ public class ManualSecretRotatorTests
 
         return (time, store, context);
     }
-    
+
+    [Fact]
+    public async Task CanInitializeSecret()
+    {
+        var (time, store, context) = Setup();
+        
+        var rotator = new ManualSecretRotator(time);
+        var resource = new ResourceConfiguration()
+        {
+            Name = "test-secret",
+            StoreName = "test-store",
+            ExpirationDays = 90,
+            ContentType = "text/plain",
+            StrategyType = ManualSecretRotator.StrategyType
+        };
+        
+        var result = await rotator.InitializeAsync(resource, store, context, CancellationToken.None);
+
+        result.ShouldNotBeNull();
+        result.WasRotated.ShouldBeTrue();
+        
+        var resultSecret = await store.GetSecretAsync("test-secret", CancellationToken.None);
+        resultSecret.ShouldNotBeNull();
+        resultSecret.Name.ShouldBe("test-secret");
+        resultSecret.ContentType.ShouldBe("text/plain");
+        resultSecret.ExpiresOn.ShouldBe(time.GetUtcNow().AddDays(90));
+    }
+
+    [Fact]
+    public async Task SkipsInitializingSecretWhenInitialized()
+    {
+        var (time, store, context) = Setup();
+        var start = new DateTimeOffset(2025, 3,1,0,0,0, TimeSpan.Zero);
+        time.SetUtcNow(start);
+
+        // First, initialize the secret
+        await store.UpdateSecretAsync("test-secret", "initial-value", time.GetUtcNow().AddDays(90), "text/plain",
+            CancellationToken.None);
+        
+        var rotator = new ManualSecretRotator(time);
+        var resource = new ResourceConfiguration()
+        {
+            Name = "test-secret",
+            StoreName = "test-store",
+            ExpirationDays = 90,
+            ContentType = "text/plain",
+            StrategyType = ManualSecretRotator.StrategyType
+        };
+        
+        // Try to initialize again
+        var result = await rotator.InitializeAsync(resource, store, context, CancellationToken.None);
+
+        // Verify the result
+        result.ShouldNotBeNull();
+        result.WasRotated.ShouldBeFalse();
+        result.Notes.ShouldContain("already initialized");
+        
+        // Verify the secret wasn't changed
+        var resultSecret = await store.GetSecretAsync("test-secret", CancellationToken.None);
+        resultSecret.ShouldNotBeNull();
+        resultSecret.Name.ShouldBe("test-secret");
+        resultSecret.ContentType.ShouldBe("text/plain");
+        resultSecret.ExpiresOn.ShouldBe(time.GetUtcNow().AddDays(90));
+    }
+
+    [Fact]
+    public async Task InitializeSecretWhenInitializedAndForced()
+    {
+        var (time, store, context) = Setup(force: true);
+        var start = new DateTimeOffset(2025, 3,1,0,0,0, TimeSpan.Zero);
+        time.SetUtcNow(start);
+
+        // First, initialize the secret
+        await store.UpdateSecretAsync("test-secret", "initial-value", time.GetUtcNow().AddDays(90), "text/plain",
+            CancellationToken.None);
+        
+        var rotator = new ManualSecretRotator(time);
+        var resource = new ResourceConfiguration()
+        {
+            Name = "test-secret",
+            StoreName = "test-store",
+            ExpirationDays = 90,
+            ContentType = "text/plain",
+            StrategyType = ManualSecretRotator.StrategyType
+        };
+        
+        time.SetUtcNow(start.AddDays(30));
+        
+        // Try to initialize again
+        var result = await rotator.InitializeAsync(resource, store, context, CancellationToken.None);
+
+        // Verify the result
+        result.ShouldNotBeNull();
+        result.WasRotated.ShouldBeTrue();
+        result.Notes.ShouldContain("Rotated secret");
+        
+        // Verify the secret was changed
+        var resultSecret = await store.GetSecretAsync("test-secret", CancellationToken.None);
+        resultSecret.ShouldNotBeNull();
+        resultSecret.Name.ShouldBe("test-secret");
+        resultSecret.ContentType.ShouldBe("text/plain");
+        resultSecret.ExpiresOn.ShouldBe(time.GetUtcNow().AddDays(90));
+    }
+
     [Fact]
     public async Task SkipsWhenSecretUninitialized()
     {
