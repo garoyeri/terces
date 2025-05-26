@@ -1,5 +1,11 @@
 ﻿namespace Terces;
 
+/// <summary>
+/// Abstract base class that provides a foundational structure for configuring,
+/// initializing, and rotating resources or secrets. Implements mechanisms
+/// to evaluate rotation candidacy and delegates the specific details of initialization
+/// and rotation processes to subclasses.
+/// </summary>
 public abstract class AbstractRotator
 {
     protected readonly TimeProvider _time;
@@ -9,7 +15,7 @@ public abstract class AbstractRotator
         _time = time;
     }
 
-    
+
     public async Task<RotationResult> InitializeAsync(ResourceConfiguration resource,
         ISecretStore store,
         OperationContext context,
