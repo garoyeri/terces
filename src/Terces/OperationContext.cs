@@ -10,5 +10,5 @@ public record OperationContext
 
     public string SecretValue1 { get; set; } = "";
     public required bool Force { get; init; } = false;
-    public required bool IsWhatIf { get; init; } = true;
+    public required bool IsWhatIf { get; init; } = false;
 }
