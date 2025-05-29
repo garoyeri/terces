@@ -8,4 +8,5 @@ public record ResourceConfiguration
     public double ExpirationDays { get; set; } = 90.0;
     public double ExpirationOverlapDays { get; set; } = 0.0;
     public string ContentType { get; set; } = "text/plain";
+    public string? TargetResourceId { get; set; }
 }

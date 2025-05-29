@@ -11,4 +11,7 @@ public record OperationContext
     public string SecretValue1 { get; set; } = "";
     public required bool Force { get; init; } = false;
     public required bool IsWhatIf { get; init; } = false;
+    
+    public IReadOnlyDictionary<string, object> Credentials { get; init; } =
+        new Dictionary<string, object>();
 }
