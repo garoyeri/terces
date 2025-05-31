@@ -76,4 +76,19 @@ public class InMemorySecretStore(TimeProvider time) : ISecretStore
 
         return Task.FromResult<SecretInfo?>(result.Info);
     }
+
+    /// <summary>
+    /// Retrieves the value of a secret identified by its name from the in-memory secret store.
+    /// </summary>
+    /// <param name="name">The name of the secret to retrieve.</param>
+    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
+    /// <returns>
+    /// A task that represents the asynchronous operation. The task result contains the value of the secret
+    /// as a string, or null if the secret is not found.
+    /// </returns>
+    public Task<string?> GetSecretValueAsync(string name, CancellationToken cancellationToken)
+    {
+        var result = _secrets.GetValueOrDefault(name);
+        return Task.FromResult(result?.SecretValue);
+    }
 }

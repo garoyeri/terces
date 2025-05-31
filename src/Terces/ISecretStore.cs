@@ -25,4 +25,12 @@ public interface ISecretStore
     /// <returns>A task that represents the asynchronous operation. The task result is the metadata of the created or updated secret.</returns>
     Task<SecretInfo?> UpdateSecretAsync(string name, string value, DateTimeOffset? expiresOn, string contentType,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Retrieves the value of a secret by its name.
+    /// </summary>
+    /// <param name="name">The name of the secret whose value is requested.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>The value of the secret if found; otherwise, null.</returns>
+    Task<string?> GetSecretValueAsync(string name, CancellationToken cancellationToken);
 }

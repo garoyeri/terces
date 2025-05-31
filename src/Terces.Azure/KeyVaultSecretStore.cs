@@ -60,4 +60,18 @@ public class KeyVaultSecretStore : ISecretStore
         var secretUpdated = await _client.SetSecretAsync(secret, cancellationToken);
         return secretUpdated.Map();
     }
+
+    /// <summary>
+    /// Retrieves the value of a secret stored in the Azure Key Vault.
+    /// </summary>
+    /// <param name="name">The name of the secret to retrieve.</param>
+    /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+    /// <returns>The value of the secret if found; otherwise, null.</returns>
+    public async Task<string?> GetSecretValueAsync(string name, CancellationToken cancellationToken)
+    {
+        var secretValueFound = await _client.GetSecretAsync(name, null, cancellationToken);
+        if (!secretValueFound.HasValue) return null;
+
+        return secretValueFound.Value.Value;
+    }
 }
