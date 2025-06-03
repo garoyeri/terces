@@ -43,6 +43,12 @@ public class PostgreSqlFlexibleServerAdministratorRotator: AbstractRotator, IRot
     /// </remarks>
     public static string StrategyType => "azure/postgresql/flexible-server/administrator";
 
+    /// Represents the credentials for an Azure PostgreSQL Flexible Server administrator.
+    /// Encapsulates the server's hostname, username, and password.
+    /// Used during the credential rotation process to securely store and update
+    /// the administrative access information for the database server.
+    public record PostgreSqlFlexibleServerAdministratorCredential(string hostname, string username, string password);
+
     /// <summary>
     /// Performs the initialization logic for the rotation process by delegating
     /// the operation to the rotation method.
@@ -114,16 +120,21 @@ public class PostgreSqlFlexibleServerAdministratorRotator: AbstractRotator, IRot
         await server.UpdateAsync(WaitUntil.Completed, patch, cancellationToken);
         
         // store the new credential
-        var serverCredentials = new
-        {
-            hostname,
-            username = "admin",
-            password = newPassword
-        };
+        var serverCredentials = new PostgreSqlFlexibleServerAdministratorCredential(hostname, "admin", newPassword);
         
         var json = JsonSerializer.Serialize(serverCredentials);
-        await store.UpdateSecretAsync(resource.Name, json, _time.GetUtcNow().AddDays(resource.ExpirationDays), "application/json", cancellationToken);
-
+        var updatedSecret = await store.UpdateSecretAsync(resource.Name, json, _time.GetUtcNow().AddDays(resource.ExpirationDays), "application/json", cancellationToken);
+        if (updatedSecret == null)
+        {
+            // something has gone horribly wrong
+            return new RotationResult
+            {
+                Name = resource.Name,
+                WasRotated = false,
+                Notes = $"Failed to update secret for {resource.Name} in store {resource.StoreName}. Reinitialization will be required to recover."
+            };
+        }
+        
         return new RotationResult()
         {
             Name = resource.Name,
