@@ -1,9 +1,4 @@
 ﻿using System.Text.Json;
-using Azure;
-using Azure.Core;
-using Azure.ResourceManager;
-using Azure.ResourceManager.PostgreSql.FlexibleServers;
-using Azure.ResourceManager.PostgreSql.FlexibleServers.Models;
 
 namespace Terces.Azure;
 
@@ -14,22 +9,13 @@ namespace Terces.Azure;
 /// applies the new password to the server, and updates the secret in the provided secret store.
 public class PostgreSqlFlexibleServerAdministratorRotator: AbstractRotator, IRotator
 {
-    /// <summary>
-    /// Represents an instance of <see cref="ArmClient"/> used for managing Azure resources,
-    /// specifically targeting PostgreSQL Flexible Server operations within the rotator implementation.
-    /// </summary>
-    /// <remarks>
-    /// The <see cref="_client"/> is initialized with a <see cref="TokenCredential"/> to authenticate
-    /// and authorize Azure service requests. It facilitates access to Azure Resource Manager functionality
-    /// required for rotating the administrator login credentials of a PostgreSQL Flexible Server.
-    /// </remarks>
-    private readonly ArmClient _client;
+    private readonly IAzureClient _client;
 
     /// Represents a rotator that performs password rotation for PostgreSQL Flexible Server administrators.
     /// This class extends the functionality of AbstractRotator and implements the IRotator interface.
-    public PostgreSqlFlexibleServerAdministratorRotator(TokenCredential credential, TimeProvider time) : base(time)
+    public PostgreSqlFlexibleServerAdministratorRotator(IAzureClient client, TimeProvider time) : base(time)
     {
-        _client = new ArmClient(credential);
+        _client = client;
     }
 
     /// <summary>
@@ -86,8 +72,7 @@ public class PostgreSqlFlexibleServerAdministratorRotator: AbstractRotator, IRot
             };
         }
 
-        var server = _client.GetPostgreSqlFlexibleServerResource(ResourceIdentifier.Parse(resource.TargetResourceId));
-        var serverDetails = await server.GetAsync(cancellationToken);
+        var serverDetails = await _client.GetPostgreSqlFlexibleServerDetailsAsync(resource.TargetResourceId, cancellationToken);
         if (serverDetails == null)
         {
             return new RotationResult
@@ -98,14 +83,6 @@ public class PostgreSqlFlexibleServerAdministratorRotator: AbstractRotator, IRot
             };
         }
         
-        var hostname = serverDetails.Value.Data.FullyQualifiedDomainName;
-        
-        var newPassword = PasswordGenerator.Generate(16);
-        var patch = new PostgreSqlFlexibleServerPatch
-        {
-            AdministratorLoginPassword = newPassword
-        };
-
         if (context.IsWhatIf)
         {
             return new RotationResult
@@ -117,10 +94,11 @@ public class PostgreSqlFlexibleServerAdministratorRotator: AbstractRotator, IRot
         }
         
         // rotate the server credential
-        await server.UpdateAsync(WaitUntil.Completed, patch, cancellationToken);
+        var newPassword = PasswordGenerator.Generate(16);
+        await _client.UpdatePostgreSqlFlexibleServerAdminPasswordAsync(resource.TargetResourceId, newPassword, cancellationToken);
         
         // store the new credential
-        var serverCredentials = new PostgreSqlFlexibleServerAdministratorCredential(hostname, "admin", newPassword);
+        var serverCredentials = new PostgreSqlFlexibleServerAdministratorCredential(serverDetails.Hostname, serverDetails.Username, newPassword);
         
         var json = JsonSerializer.Serialize(serverCredentials);
         var updatedSecret = await store.UpdateSecretAsync(resource.Name, json, _time.GetUtcNow().AddDays(resource.ExpirationDays), "application/json", cancellationToken);

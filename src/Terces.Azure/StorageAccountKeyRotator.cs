@@ -1,8 +1,4 @@
 ﻿using System.Text.Json;
-using Azure.Core;
-using Azure.ResourceManager;
-using Azure.ResourceManager.Storage;
-using Azure.ResourceManager.Storage.Models;
 
 namespace Terces.Azure;
 
@@ -10,25 +6,31 @@ namespace Terces.Azure;
 /// Represents a mechanism to handle the rotation of keys for Azure Storage Accounts, ensuring secure and periodic updates
 /// of access credentials stored within a configured secret store.
 /// </summary>
-public class StorageAccountKeyRotator : AbstractRotator, IRotator
+public class StorageAccountKeyRotator : IRotator
 {
+    private const string SecondarySecretSuffix = "Backup";
+    
     /// <summary>
-    /// Represents an instance of the Azure Resource Manager client for interacting with Azure resources.
+    /// Represents the time provider used for evaluating initialization and rotation candidacy,
+    /// as well as determining expiration details within the rotator logic.
     /// </summary>
     /// <remarks>
-    /// This client is used to perform resource management tasks such as retrieving or modifying resources in Azure.
-    /// It is instantiated using the provided <see cref="TokenCredential"/> to authenticate requests.
+    /// This variable is instantiated through the constructor of the <see cref="AbstractRotator"/> class.
+    /// It enables time-related functionalities, such as getting the current UTC time for computation purposes.
     /// </remarks>
-    private readonly ArmClient _client;
+    private readonly TimeProvider _time;
+
+    private readonly IAzureClient _client;
 
     /// <summary>
     /// Provides functionality to manage and rotate the shared access keys for an Azure Storage Account.
     /// The class is responsible for performing the initialization and rotation of the keys, ensuring
     /// secure and consistent management of credentials in the associated secret store.
     /// </summary>
-    public StorageAccountKeyRotator(TokenCredential credential, TimeProvider time) : base(time)
+    public StorageAccountKeyRotator(IAzureClient client, TimeProvider time)
     {
-        _client = new ArmClient(credential);
+        _time = time;
+        _client = client;
     }
 
     /// <summary>
@@ -43,6 +45,55 @@ public class StorageAccountKeyRotator : AbstractRotator, IRotator
     /// Represents a credential for a storage account key. Contains the key name and its value.
     /// </summary>
     public record StorageAccountKeyCredential(string name, string value);
+
+    /// <summary>
+    /// Asynchronously initializes a secret resource based on its configuration and context, if initialization is required.
+    /// </summary>
+    /// <param name="resource">The configuration details of the resource to be initialized.</param>
+    /// <param name="store">The secret store interface where the secret resides.</param>
+    /// <param name="context">The operational context for this initialization operation.</param>
+    /// <param name="cancellationToken">A token to cancel the initialization operation.</param>
+    /// <returns>A task that represents the asynchronous operation, containing the result of the initialization process as a <see cref="RotationResult"/>.</returns>
+    public async Task<RotationResult> InitializeAsync(ResourceConfiguration resource,
+        ISecretStore store,
+        OperationContext context,
+        CancellationToken cancellationToken)
+    {
+        var initialResult = await resource.EvaluateInitializationCandidacy(store, context, _time, cancellationToken);
+        if (initialResult != null) return initialResult;
+        
+        return await PerformInitialization(resource, store, context, cancellationToken);
+    }
+
+    /// Executes the rotation logic for the specified resource configuration,
+    /// using the provided secret store and operation context, while considering the given cancellation token.
+    /// The method first evaluates if the resource is eligible for rotation
+    /// and performs the actual rotation if required.
+    /// <param name="resource">
+    /// The configuration details of the resource, including its attributes needed for rotation evaluation and execution.
+    /// </param>
+    /// <param name="store">
+    /// The secret store interface used to interact with storage and retrieval of secrets during rotation.
+    /// </param>
+    /// <param name="context">
+    /// The operation context providing additional metadata or settings related to the ongoing operation.
+    /// </param>
+    /// <param name="cancellationToken">
+    /// The cancellation token to observe for cancellation requests during the execution of the asynchronous task.
+    /// </param>
+    /// <returns>
+    /// A task that represents the asynchronous operation, containing the result of the rotation process in the form of a RotationResult.
+    /// </returns>
+    public async Task<RotationResult> RotateAsync(ResourceConfiguration resource,
+        ISecretStore store,
+        OperationContext context,
+        CancellationToken cancellationToken)
+    {
+        var initialResult = await resource.EvaluateRotationCandidacy(store, context, _time, cancellationToken);
+        if (initialResult != null) return initialResult;
+        
+        return await PerformRotation(resource, store, context, cancellationToken);
+    }
 
     /// Responsible for performing the initialization process for storage account key rotation.
     /// This includes validating resource configurations, regenerating the specified key,
@@ -63,7 +114,7 @@ public class StorageAccountKeyRotator : AbstractRotator, IRotator
     /// A task representing the asynchronous operation, with a result of type <see cref="RotationResult"/>
     /// indicating the outcome of the initialization process.
     /// </return>
-    protected override async Task<RotationResult> PerformInitialization(ResourceConfiguration resource, ISecretStore store, OperationContext context,
+    private async Task<RotationResult> PerformInitialization(ResourceConfiguration resource, ISecretStore store, OperationContext context,
         CancellationToken cancellationToken)
     {
         if (resource.TargetResourceId == null)
@@ -77,12 +128,10 @@ public class StorageAccountKeyRotator : AbstractRotator, IRotator
         }
 
         // get the list of keys from the storage account
-        var storageAccountResourceId = ResourceIdentifier.Parse(resource.TargetResourceId);
-        var account = _client.GetStorageAccountResource(storageAccountResourceId);
-        var keys = await GetExpectedStorageAccountKeys(account, cancellationToken);
+        var keys = await _client.GetExpectedStorageAccountKeys(resource.TargetResourceId, cancellationToken);
 
         // make sure we have two keys
-        if (keys.Count != 2)
+        if (keys.Length != 2)
         {
             return new RotationResult
             {
@@ -96,19 +145,7 @@ public class StorageAccountKeyRotator : AbstractRotator, IRotator
         const string keyToRotate = "key1";
 
         // rotate the desired key, grab its value and then rotate the secret
-        var regenerateResponse = account.RegenerateKeyAsync(
-            new StorageAccountRegenerateKeyContent(keyToRotate),
-            cancellationToken);
-        StorageAccountKey? rotatedKey = null;
-        await foreach (var key in regenerateResponse)
-        {
-            if (key.KeyName != keyToRotate) continue;
-
-            rotatedKey = key;
-            break;
-        }
-
-        // make sure the rotated key was returned
+        var rotatedKey = await _client.RotateStorageAccountKey(resource.TargetResourceId, keyToRotate, cancellationToken);
         if (rotatedKey == null)
         {
             return new RotationResult()
@@ -162,7 +199,7 @@ public class StorageAccountKeyRotator : AbstractRotator, IRotator
     /// <return>
     /// A <see cref="RotationResult"/> indicating the outcome of the rotation, including its status and any relevant notes.
     /// </return>
-    protected override async Task<RotationResult> PerformRotation(ResourceConfiguration resource, ISecretStore store, OperationContext context,
+    private async Task<RotationResult> PerformRotation(ResourceConfiguration resource, ISecretStore store, OperationContext context,
         CancellationToken cancellationToken)
     {
         if (resource.TargetResourceId == null)
@@ -176,12 +213,10 @@ public class StorageAccountKeyRotator : AbstractRotator, IRotator
         }
 
         // get the list of keys from the storage account
-        var storageAccountResourceId = ResourceIdentifier.Parse(resource.TargetResourceId);
-        var account = _client.GetStorageAccountResource(storageAccountResourceId);
-        var keys = await GetExpectedStorageAccountKeys(account, cancellationToken);
+        var keys = await _client.GetExpectedStorageAccountKeys(resource.TargetResourceId, cancellationToken);
 
         // make sure we have two keys
-        if (keys.Count != 2)
+        if (keys.Length != 2)
         {
             return new RotationResult
             {
@@ -217,19 +252,7 @@ public class StorageAccountKeyRotator : AbstractRotator, IRotator
         var keyToRotate = secret.name == "key1" ? "key2" : "key1";
         
         // rotate the desired key, grab its value and then rotate the secret
-        var regenerateResponse = account.RegenerateKeyAsync(
-            new StorageAccountRegenerateKeyContent(keyToRotate),
-            cancellationToken);
-        StorageAccountKey? rotatedKey = null;
-        await foreach (var key in regenerateResponse)
-        {
-            if (key.KeyName != keyToRotate) continue;
-
-            rotatedKey = key;
-            break;
-        }
-
-        // make sure the rotated key was returned
+        var rotatedKey = await _client.RotateStorageAccountKey(resource.TargetResourceId, keyToRotate, cancellationToken);
         if (rotatedKey == null)
         {
             return new RotationResult()
@@ -261,27 +284,5 @@ public class StorageAccountKeyRotator : AbstractRotator, IRotator
             WasRotated = true,
             Notes = $"Rotated key {keyToRotate} for {resource.Name} in store {resource.StoreName}"
         };
-    }
-
-    /// <summary>
-    /// Retrieves the expected storage account keys for the specified storage account,
-    /// selecting the keys intended for rotation.
-    /// </summary>
-    /// <param name="account">The storage account resource for which the keys should be retrieved.</param>
-    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
-    /// <returns>A list containing the storage account keys "key1" and "key2" if found.</returns>
-    private async Task<List<StorageAccountKey>> GetExpectedStorageAccountKeys(StorageAccountResource account,
-        CancellationToken cancellationToken)
-    {
-        var keysResponse = account.GetKeysAsync(cancellationToken: cancellationToken);
-        List<StorageAccountKey> keys = new();
-        await foreach (var key in keysResponse)
-        {
-            // only choose the two keys that we want to rotate
-            if (key.KeyName is "key1" or "key2")
-                keys.Add(key);
-        }
-
-        return keys;
     }
 }
