@@ -41,10 +41,10 @@ module vnet 'br/public:avm/res/network/virtual-network:0.7.0' = {
         name: n.nameNetworkSubnet(location, 'vm', 1)
         addressPrefix: '10.0.0.64/27'
       }
-      // {
-      //   name: n.nameNetworkSubnet(location, 'vm', 1)
-      //   addressPrefix: '10.0.0.96/27'
-      // }
+      {
+        name: 'AzureBastionSubnet'
+        addressPrefix: '10.0.0.96/27'
+      }
     ]
     diagnosticSettings: [
       {
@@ -59,6 +59,7 @@ module keyVault 'br/public:avm/res/key-vault/vault:0.13.0' = {
   name: '${deployment().name}-kv1'
   params: {
     name: n.nameKeyVault(location, spaceName, workload, 1)
+    location: location
     privateEndpoints: [
       {
         subnetResourceId: vnet.outputs.subnetResourceIds[1]
@@ -90,11 +91,13 @@ module pgsql 'br/public:avm/res/db-for-postgre-sql/flexible-server:0.12.0' = {
   params: {
     name: n.namePostgreSqlServer(location, spaceName, workload, 1)
     location: location
-    availabilityZone: -1
-    highAvailability: 'Disabled'
-    skuName: 'Standard_B1ms'
-    tier: 'Burstable'
+    availabilityZone: 1
+    highAvailabilityZone: 1
+    highAvailability: 'SameZone'
+    skuName: 'Standard_D2ds_v5'
+    tier: 'GeneralPurpose'
     administratorLogin: 'admin20250612'
+    administratorLoginPassword: 'InitialP@$$wordChange'
     storageSizeGB: 32
     version: '17'
     privateEndpoints: [
@@ -111,36 +114,43 @@ module pgsql 'br/public:avm/res/db-for-postgre-sql/flexible-server:0.12.0' = {
 }
 
 // MariaDB
-module maria 'br/public:avm/res/db-for-my-sql/flexible-server:0.8.0' = {
-  name: '${deployment().name}-mysql1'
-  params: {
-    name: n.nameMySqlServer(location, spaceName, workload, 1)
-    availabilityZone: -1
-    highAvailability: 'Disabled'
-    skuName: 'Standard_B1ms'
-    tier: 'Burstable'
-    administratorLogin: 'admin20250612'
-    storageSizeGB: 32
-    version: '8.0.21'
-    privateEndpoints: [
-      {
-        subnetResourceId: vnet.outputs.subnetResourceIds[1]
-      }
-    ]
-    diagnosticSettings: [
-      {
-        workspaceResourceId: log.outputs.resourceId
-      }
-    ]
-  }
-}
+// module maria 'br/public:avm/res/db-for-my-sql/flexible-server:0.8.0' = {
+//   name: '${deployment().name}-mysql1'
+//   params: {
+//     name: n.nameMySqlServer(location, spaceName, workload, 1)
+//     location: location
+//     availabilityZone: 1
+//     highAvailabilityZone: 1
+//     highAvailability: 'SameZone'
+//     skuName: 'Standard_D2ds_v5'
+//     tier: 'GeneralPurpose'
+//     administratorLogin: 'admin20250612'
+//     administratorLoginPassword: 'InitialP@$$wordChange'
+//     storageSizeGB: 32
+//     storageAutoGrow: 'Enabled'
+//     version: '8.0.21'
+//     privateEndpoints: [
+//       {
+//         subnetResourceId: vnet.outputs.subnetResourceIds[1]
+//       }
+//     ]
+//     diagnosticSettings: [
+//       {
+//         workspaceResourceId: log.outputs.resourceId
+//       }
+//     ]
+//   }
+// }
 
 // Virtual Machine (Jump)
 module vm 'br/public:avm/res/compute/virtual-machine:0.15.0' = {
   name: '${deployment().name}-vm1'
   params: {
     name: n.nameVirtualMachine(location, spaceName, 'jump', 1)
+    location: location
     adminUsername: 'garoyeri'
+    adminPassword: 'InitialP@$$wordChange'
+    disablePasswordAuthentication: false
     imageReference: {
       publisher: 'canonical'
       offer: 'ubuntu-24_04-lts'
@@ -162,11 +172,27 @@ module vm 'br/public:avm/res/compute/virtual-machine:0.15.0' = {
         storageAccountType: 'Premium_LRS'
       }
     }
-    osType: 'Windows'
+    osType: 'Linux'
     vmSize: 'Standard_D2ads_v6'
     zone: 1
     bootDiagnostics: true
     securityType: 'TrustedLaunch'
     secureBootEnabled: true
+    vTpmEnabled: true
+    encryptionAtHost: false
+  }
+}
+
+module bastion 'br/public:avm/res/network/bastion-host:0.6.1' = {
+  name: '${deployment().name}-bastion1'
+  params: {
+    name: 'bastion1'
+    location: location
+    virtualNetworkResourceId: vnet.outputs.resourceId
+    diagnosticSettings: [
+      {
+        workspaceResourceId: log.outputs.resourceId
+      }
+    ]
   }
 }
