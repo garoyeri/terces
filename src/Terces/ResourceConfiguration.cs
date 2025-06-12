@@ -1,7 +1,8 @@
 ﻿namespace Terces;
 
 /// <summary>
-/// Represents the configuration settings for a resource, including details about its name, strategy, storage location, expiration policies, and content type.
+/// Represents the configuration settings for a resource, including details about its name, strategy, storage location,
+/// expiration policies, and content type.
 /// </summary>
 public record ResourceConfiguration
 {
@@ -15,7 +16,7 @@ public record ResourceConfiguration
     public required string Name { get; init; }
 
     /// <summary>
-    /// Represents the type of strategy to be utilized for configuring or managing a resource.
+    /// Represents the type of strategy to be used for configuring or managing a resource.
     /// This property is required and determines the specific approach or methodology
     /// applied when interacting with the associated resource, such as secret rotation.
     /// </summary>
@@ -63,4 +64,9 @@ public record ResourceConfiguration
     /// If not set, the rotation operation cannot proceed.
     /// </remarks>
     public string? TargetResourceId { get; set; }
+    
+    /// <summary>
+    /// Gets or sets the database user configuration if this resource is a database user resource.
+    /// </summary>
+    public DatabaseUserConfiguration? DatabaseUserConfiguration { get; set; }
 }
