@@ -68,5 +68,5 @@ public record ResourceConfiguration
     /// <summary>
     /// Gets or sets the database user configuration if this resource is a database user resource.
     /// </summary>
-    public DatabaseUserConfiguration? DatabaseUserConfiguration { get; set; }
+    public DatabaseUserConfiguration? DatabaseUser { get; set; }
 }

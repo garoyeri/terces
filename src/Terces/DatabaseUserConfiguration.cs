@@ -14,4 +14,11 @@ public record DatabaseUserConfiguration
     /// Gets or sets the roles associated with the database user.
     /// </summary>
     public string[] Roles { get; set; } = [];
+    
+    /// <summary>
+    /// Gets or sets the name of the secret used for the database server credential.
+    /// This credential should be a secret of content type `application/json` with properties:
+    /// `hostname`, `username`, and `password`.
+    /// </summary>
+    public required string ServerSecretName { get; init; }
 }
