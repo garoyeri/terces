@@ -246,3 +246,8 @@ func nameStorageAccount(location string, spaceName string, workload string, inde
 @description('Derive a name for a Key Vault.')
 func nameKeyVault(location string, spaceName string, workload string, index Index) string =>
   'kv-${workload}-${spaceName}-${toLower(nameLocation(location))}-${formatIndex(index)}'
+
+@export()
+@description('Derive a name for a Virtual Machine.')
+func nameVirtualMachine(location string, spaceName string, workload string, index Index) string =>
+  'vm-${workload}-${spaceName}-${toLower(nameLocation(location))}-${formatIndex(index)}'

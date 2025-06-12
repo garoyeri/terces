@@ -134,3 +134,39 @@ module maria 'br/public:avm/res/db-for-my-sql/flexible-server:0.8.0' = {
     ]
   }
 }
+
+// Virtual Machine (Jump)
+module vm 'br/public:avm/res/compute/virtual-machine:0.15.0' = {
+  name: '${deployment().name}-vm1'
+  params: {
+    name: n.nameVirtualMachine(location, spaceName, 'jump', 1)
+    adminUsername: 'garoyeri'
+    imageReference: {
+      publisher: 'canonical'
+      offer: 'ubuntu-24_04-lts'
+      sku: 'server'
+      version: 'latest'
+    }
+    nicConfigurations: [
+      {
+        ipConfigurations: [
+          {
+            subnetResourceId: vnet.outputs.subnetResourceIds[2]
+          }
+        ]
+      }
+    ]
+    osDisk: {
+      createOption: 'FromImage'
+      managedDisk: {
+        storageAccountType: 'Premium_LRS'
+      }
+    }
+    osType: 'Windows'
+    vmSize: 'Standard_D2ads_v6'
+    zone: 1
+    bootDiagnostics: true
+    securityType: 'TrustedLaunch'
+    secureBootEnabled: true
+  }
+}
