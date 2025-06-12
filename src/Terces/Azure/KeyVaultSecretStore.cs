@@ -32,8 +32,15 @@ public class KeyVaultSecretStore : ISecretStore
     /// <returns>The secret's metadata if found; otherwise, null.</returns>
     public async Task<SecretInfo?> GetSecretAsync(string name, CancellationToken cancellationToken = default)
     {
-        var secretFound = await _client.GetSecretAsync(name, null, cancellationToken);
-        return secretFound.Map();
+        try
+        {
+            var secretFound = await _client.GetSecretAsync(name, null, cancellationToken);
+            return secretFound.Map();
+        }
+        catch (Exception e)
+        {
+            return null;
+        }
     }
 
     /// <summary>
@@ -69,9 +76,16 @@ public class KeyVaultSecretStore : ISecretStore
     /// <returns>The value of the secret if found; otherwise, null.</returns>
     public async Task<string?> GetSecretValueAsync(string name, CancellationToken cancellationToken)
     {
-        var secretValueFound = await _client.GetSecretAsync(name, null, cancellationToken);
-        if (!secretValueFound.HasValue) return null;
+        try
+        {
+            var secretValueFound = await _client.GetSecretAsync(name, null, cancellationToken);
+            if (!secretValueFound.HasValue) return null;
 
-        return secretValueFound.Value.Value;
+            return secretValueFound.Value.Value;
+        }
+        catch (Exception )
+        {
+            return null;
+        }
     }
 }
