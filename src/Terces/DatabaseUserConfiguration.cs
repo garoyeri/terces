@@ -21,4 +21,9 @@ public record DatabaseUserConfiguration
     /// `hostname`, `username`, and `password`.
     /// </summary>
     public required string ServerSecretName { get; init; }
+    
+    /// <summary>
+    /// Gets or sets the endpoint to use for connecting to the database.
+    /// </summary>
+    public required string Hostname { get; init; }
 }

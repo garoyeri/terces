@@ -13,6 +13,11 @@ public record OperationContext
         new Dictionary<string, ISecretStore>();
 
     /// <summary>
+    /// Represents the collection of rotators keyed by strategy.
+    /// </summary>
+    public IReadOnlyDictionary<string, IRotator> Rotators { get; init; } = new Dictionary<string, IRotator>();
+
+    /// <summary>
     /// Gets or sets the primary secret value used during the execution of an operation.
     /// </summary>
     public string SecretValue1 { get; set; } = "";
@@ -21,13 +26,13 @@ public record OperationContext
     /// Indicates whether to bypass standard checks, forcing certain operations to execute
     /// regardless of the usual eligibility criteria.
     /// </summary>
-    public required bool Force { get; init; } = false;
+    public required bool Force { get; set; } = false;
 
     /// <summary>
     /// Indicates whether the operation is being executed in "what-if" mode.
     /// When set to true, the operation simulates the actions without making any actual changes.
     /// </summary>
-    public required bool IsWhatIf { get; init; } = false;
+    public required bool IsWhatIf { get; set; } = false;
 
     /// <summary>
     /// Gets the dictionary of credentials associated with the current operating context.

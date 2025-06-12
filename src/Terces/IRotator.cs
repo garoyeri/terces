@@ -11,7 +11,7 @@ public interface IRotator
     /// This property is static and specific to the implementing class, allowing different rotators
     /// to define distinct strategy types for categorization or identification purposes.
     /// Typically used to match resources or operations to the appropriate rotator implementation.
-    static abstract string StrategyType { get; }
+    // static abstract string StrategyType { get; }
 
     /// <summary>
     /// Initializes the rotation process for a given resource using the provided configuration,

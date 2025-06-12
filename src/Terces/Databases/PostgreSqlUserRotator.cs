@@ -32,7 +32,7 @@ public class PostgreSqlUserRotator : AbstractRotator, IRotator
 
     /// <summary>
     /// Performs the initialization process for the PostgreSQL user rotator, setting up
-    /// necessary resources and dependencies required for the rotation operation.
+    /// the necessary resources and dependencies required for the rotation operation.
     /// </summary>
     /// <param name="resource">The resource configuration containing details about the resource to be rotated.</param>
     /// <param name="store">The secret store interface used to retrieve or update secrets during initialization.</param>
@@ -126,7 +126,7 @@ public class PostgreSqlUserRotator : AbstractRotator, IRotator
         // connect and validate database connection
         var connectionString = new NpgsqlConnectionStringBuilder()
         {
-            Host = serverCredentials.hostname,
+            Host = resource.DatabaseUser.Hostname,
             Username = serverCredentials.username,
             Password = serverCredentials.password
         };
@@ -155,7 +155,7 @@ public class PostgreSqlUserRotator : AbstractRotator, IRotator
         await command.ExecuteNonQueryAsync(cancellationToken);
         
         // update the secret store
-        var newCredential = new DatabaseCredential(serverCredentials.hostname, username, password);
+        var newCredential = new DatabaseCredential(resource.DatabaseUser.Hostname, username, password);
         
         var json = JsonSerializer.Serialize(newCredential);
         var updatedSecret = await store.UpdateSecretAsync(resource.Name, json, expiration, "application/json", cancellationToken);
