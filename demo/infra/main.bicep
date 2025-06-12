@@ -54,15 +54,37 @@ module vnet 'br/public:avm/res/network/virtual-network:0.7.0' = {
   }
 }
 
+module privatedns 'br/public:avm/ptn/network/private-link-private-dns-zones:0.6.0' = {
+  name: '${deployment().name}-pdns'
+  params: {
+    location: location
+    virtualNetworkLinks: [
+      {
+        virtualNetworkResourceId: vnet.outputs.resourceId
+      }
+    ]
+  }
+}
+
 // Key Vault
 module keyVault 'br/public:avm/res/key-vault/vault:0.13.0' = {
   name: '${deployment().name}-kv1'
+  dependsOn: [
+    privatedns
+  ]
   params: {
     name: n.nameKeyVault(location, spaceName, workload, 1)
     location: location
     privateEndpoints: [
       {
         subnetResourceId: vnet.outputs.subnetResourceIds[1]
+        privateDnsZoneGroup: {
+          privateDnsZoneGroupConfigs: [
+            {
+              privateDnsZoneResourceId: resourceId('Microsoft.Network/privateDnsZones', 'privatelink.vaultcore.azure.net')
+            }
+          ]
+        }
       }
     ]
   }
