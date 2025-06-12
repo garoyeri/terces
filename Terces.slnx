@@ -1,6 +1,5 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/Terces.Azure/Terces.Azure.csproj" />
     <Project Path="src/Terces.Console/Terces.Console.csproj" />
     <Project Path="src/Terces/Terces.csproj" />
   </Folder>
