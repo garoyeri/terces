@@ -111,7 +111,7 @@ public class PostgreSqlUserRotator : AbstractRotator, IRotator
         }
 
         var serverCredentials =
-            JsonSerializer.Deserialize<PostgreSqlFlexibleServerAdministratorRotator.Credential>(
+            JsonSerializer.Deserialize<DatabaseCredential>(
                 serverCredentialResponse);
         if (serverCredentials == null)
         {
@@ -155,7 +155,7 @@ public class PostgreSqlUserRotator : AbstractRotator, IRotator
         await command.ExecuteNonQueryAsync(cancellationToken);
         
         // update the secret store
-        var newCredential = new PostgreSqlFlexibleServerAdministratorRotator.Credential(serverCredentials.hostname, username, password);
+        var newCredential = new DatabaseCredential(serverCredentials.hostname, username, password);
         
         var json = JsonSerializer.Serialize(newCredential);
         var updatedSecret = await store.UpdateSecretAsync(resource.Name, json, expiration, "application/json", cancellationToken);
